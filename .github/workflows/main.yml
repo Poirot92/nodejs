@@ -12,9 +12,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      # 👉 Переходим в папку проекта
-      - name: Go to project dir
-        run: cd /home/nodjs
+      # 🔥 ОБНОВЛЯЕМ КОД
+      - name: Pull latest code
+        run: |
+          cd /home/nodjs
+          git pull origin master
 
       # 1. Определяем активный контейнер
       - name: Detect active
@@ -34,23 +36,22 @@ jobs:
           cd /home/nodjs
           docker compose up -d --build $NEW
 
-      # 3. Ждём (можно потом заменить на healthcheck)
       - name: Wait
         run: sleep 5
 
-      # 4. Переключаем nginx
+      # 3. Переключаем nginx
       - name: Switch nginx
         run: |
           cd /home/nodjs
           sed -i "s/$OLD/$NEW/g" nginx.conf
           docker exec nginx nginx -s reload
 
-      # 5. Останавливаем старый
+      # 4. Останавливаем старый
       - name: Stop old
         run: |
           cd /home/nodjs
           docker compose stop $OLD
 
-      # 6. Чистим мусор
+      # 5. Чистим мусор
       - name: Cleanup
         run: docker image prune -f
