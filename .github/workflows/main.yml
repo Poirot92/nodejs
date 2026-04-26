@@ -26,7 +26,7 @@ jobs:
 
       # 2. Поднимаем новый контейнер
       - name: Start new version
-        run: docker-compose up -d --build $NEW
+        run: docker compose up -d --build $NEW
 
       # 3. Ждём (минимально, можно улучшить healthcheck)
       - name: Wait
