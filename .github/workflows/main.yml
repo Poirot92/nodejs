@@ -9,16 +9,14 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      # 🔥 ОБНОВЛЯЕМ КОД
-      - name: Pull latest code
+      # ОБНОВЛЯЕМ ПРОЕКТ 
+      - name: Update repo
         run: |
           cd /home/nodjs
-          git pull origin master
+          git fetch --all
+          git reset --hard origin/master
 
-      # 1. Определяем активный контейнер
+      # 1. Detect active
       - name: Detect active
         run: |
           cd /home/nodjs
@@ -30,7 +28,7 @@ jobs:
             echo "OLD=app_green" >> $GITHUB_ENV
           fi
 
-      # 2. Поднимаем новый контейнер
+      # 2. Start new
       - name: Start new version
         run: |
           cd /home/nodjs
@@ -39,19 +37,19 @@ jobs:
       - name: Wait
         run: sleep 5
 
-      # 3. Переключаем nginx
+      # 3. Switch nginx
       - name: Switch nginx
         run: |
           cd /home/nodjs
           sed -i "s/$OLD/$NEW/g" nginx.conf
           docker exec nginx nginx -s reload
 
-      # 4. Останавливаем старый
+      # 4. Stop old
       - name: Stop old
         run: |
           cd /home/nodjs
           docker compose stop $OLD
 
-      # 5. Чистим мусор
+      # 5. Cleanup
       - name: Cleanup
         run: docker image prune -f
