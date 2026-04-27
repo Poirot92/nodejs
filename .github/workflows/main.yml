@@ -9,14 +9,14 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # 1. Обновляем код (жёстко)
+      # 1. Обновляем код
       - name: Update repo
         run: |
           cd /home/nodjs
           git fetch --all
           git reset --hard origin/master
 
-      # 2. Определяем активный контейнер
+      # 2. Определяем active (blue/green)
       - name: Detect active
         run: |
           cd /home/nodjs
@@ -28,55 +28,54 @@ jobs:
             echo "OLD=app_green" >> $GITHUB_ENV
           fi
 
-      # 3. Билдим без кэша (чтобы фронт обновлялся)
+      # 3. Билдим без кэша
       - name: Build new image
         run: |
           cd /home/nodjs
           docker compose build --no-cache $NEW
 
-      # 4. Поднимаем новый контейнер
+      # 4. Запускаем новый контейнер
       - name: Start new version
         run: |
           cd /home/nodjs
           docker compose up -d $NEW
 
-      # 5. Ждём пока реально станет доступен
-      - name: Wait for app
+      # 5. Healthcheck (ждём пока поднимется)
+      - name: Healthcheck
         run: |
           for i in {1..15}; do
             if docker exec nginx curl -s http://$NEW:3000 > /dev/null; then
               echo "App is ready"
               exit 0
             fi
+            echo "Waiting..."
             sleep 2
           done
+
           echo "App failed to start"
           docker logs $NEW
           exit 1
 
-      # 6. Переключаем nginx (БЕЗ sed)
+      # 6. Переключаем nginx (без heredoc, чтобы VS Code не ругался)
       - name: Switch nginx
         run: |
           cd /home/nodjs
-          echo "
-server {
-    listen 80;
-
-    location / {
-        proxy_pass http://$NEW:3000;
-    }
-}
-" > nginx.conf
+          printf "server {\n\
+              listen 80;\n\
+              location / {\n\
+                  proxy_pass http://$NEW:3000;\n\
+              }\n\
+          }\n" > nginx.conf
 
           docker exec nginx nginx -t
           docker exec nginx nginx -s reload
 
-      # 7. (опционально) останавливаем старый
+      # 7. Останавливаем старый (можно убрать для rollback)
       - name: Stop old
         run: |
           cd /home/nodjs
           docker compose stop $OLD
 
-      # 8. Чистим мусор
+      # 8. Чистим Docker
       - name: Cleanup
         run: docker system prune -af
