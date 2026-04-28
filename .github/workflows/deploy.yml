@@ -76,15 +76,15 @@ jobs:
         run: |
           cd /home/nodjs
 
-          cat <<EOF > nginx.conf
-server {
-    listen 80;
+          printf "server {\n\
+          listen 80;\n\
+          location / {\n\
+              proxy_pass http://$NEW:3000;\n\
+          }\n\
+          }\n" > nginx.conf
 
-    location / {
-        proxy_pass http://$NEW:3000;
-    }
-}
-EOF
+          docker exec nginx nginx -t
+          docker exec nginx nginx -s reload
 
           docker exec nginx nginx -t
           docker exec nginx nginx -s reload
