@@ -1,0 +1,36 @@
+# зависимости
+node_modules
+npm-debug.log
+
+# git
+.git
+.gitignore
+
+# docker
+Dockerfile
+docker-compose.yml
+
+# CI / runner (у тебя он огромный!)
+actions-runner
+
+# билды
+dist
+build
+
+# логи
+*.log
+
+# временные файлы
+tmp
+temp
+.cache
+
+# macOS мусор
+.DS_Store
+
+# env (если есть)
+.env
+
+# IDE
+.vscode
+.idea
