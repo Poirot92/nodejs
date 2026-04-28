@@ -43,16 +43,16 @@ jobs:
       # 5. Healthcheck (ждём пока поднимется)
       - name: Healthcheck
         run: |
-          for i in {1..15}; do
-            if docker exec nginx curl -s http://$NEW:3000 > /dev/null; then
+          for i in {1..10}; do
+            if docker exec nginx curl --max-time 2 -s http://$NEW:3000 > /dev/null; then
               echo "App is ready"
               exit 0
             fi
             echo "Waiting..."
-            sleep 2
+            sleep 1
           done
 
-          echo "App failed to start"
+          echo "App failed"
           docker logs $NEW
           exit 1
 
