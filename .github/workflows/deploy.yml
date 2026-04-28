@@ -11,12 +11,20 @@ jobs:
     runs-on: self-hosted
 
     steps:
+      # 1. Обновляем код
       - name: Update project
         run: |
           cd /home/nodjs
           git fetch --all
           git reset --hard origin/master
 
+      # 2. Убеждаемся что nginx запущен
+      - name: Ensure nginx is running
+        run: |
+          cd /home/nodjs
+          docker compose up -d nginx
+
+      # 3. Определяем active
       - name: Detect active
         run: |
           cd /home/nodjs
@@ -28,45 +36,54 @@ jobs:
             echo "OLD=app_green" >> $GITHUB_ENV
           fi
 
-      # 🔥 ВАЖНО: теперь НЕ билдим
+      # 4. Тянем только новый образ
       - name: Pull new image
         run: |
           cd /home/nodjs
-          docker compose pull
+          docker compose pull $NEW
 
+      # 5. Поднимаем новый контейнер
       - name: Start new version
         run: |
           cd /home/nodjs
           docker compose up -d $NEW
 
+      # 6. Healthcheck
       - name: Healthcheck
         run: |
-          for i in {1..10}; do
+          echo "Waiting for $NEW..."
+
+          for i in {1..15}; do
             if docker exec nginx curl --max-time 2 -s http://$NEW:3000 > /dev/null; then
               echo "App is ready"
               exit 0
             fi
-            sleep 1
+            sleep 2
           done
 
           echo "App failed"
           docker logs $NEW
           exit 1
 
+      # 7. Переключаем nginx
       - name: Switch nginx
         run: |
           cd /home/nodjs
 
-          printf "server {\n\
-              listen 80;\n\
-              location / {\n\
-                  proxy_pass http://$NEW:3000;\n\
-              }\n\
-          }\n" > nginx.conf
+          cat <<EOF > nginx.conf
+server {
+    listen 80;
+
+    location / {
+        proxy_pass http://$NEW:3000;
+    }
+}
+EOF
 
           docker exec nginx nginx -t
           docker exec nginx nginx -s reload
 
+      # 8. Останавливаем старый
       - name: Stop old
         run: |
           cd /home/nodjs
