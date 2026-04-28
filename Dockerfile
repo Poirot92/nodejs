@@ -1,30 +1,21 @@
-version: '3.8'
+# ---------- BUILD ----------
+    FROM node:18 AS builder
 
-services:
-  app_blue:
-    image: poirot92/nodjs-app:latest
-    container_name: app_blue
-    networks:
-      - app_net
-
-  app_green:
-    image: poirot92/nodjs-app:latest
-    container_name: app_green
-    networks:
-      - app_net
-
-  nginx:
-    image: nginx:alpine
-    container_name: nginx
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
-    depends_on:
-      - app_blue
-      - app_green
-    networks:
-      - app_net
-
-networks:
-  app_net:
+    WORKDIR /app
+    
+    COPY package*.json ./
+    RUN npm ci
+    
+    COPY . .
+    RUN npm run build
+    
+    # ---------- RUNTIME ----------
+    FROM node:18-alpine
+    
+    WORKDIR /app
+    
+    COPY --from=builder /app /app
+    
+    EXPOSE 3000
+    
+    CMD ["npm", "start"]
