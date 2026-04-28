@@ -3,9 +3,11 @@ version: '3.8'
 services:
   app_blue:
     image: poirot92/nodjs-app:latest
+    container_name: app_blue
 
   app_green:
     image: poirot92/nodjs-app:latest
+    container_name: app_green
 
   nginx:
     image: nginx:alpine
