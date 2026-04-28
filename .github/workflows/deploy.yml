@@ -53,6 +53,11 @@ jobs:
         run: |
           cd /home/nodjs
           docker compose up -d $NEW
+      
+      - name: Debug containers
+        run: |
+          docker ps -a
+          docker logs $NEW
 
       # 6. Healthcheck
       - name: Healthcheck
