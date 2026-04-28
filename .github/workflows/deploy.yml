@@ -11,6 +11,12 @@ jobs:
     runs-on: self-hosted
 
     steps:
+      - name: Debug
+        run: |
+          docker ps -a
+          pwd
+          ls -la
+
       # 1. Обновляем код
       - name: Update project
         run: |
