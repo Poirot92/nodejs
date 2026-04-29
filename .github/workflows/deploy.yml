@@ -18,11 +18,8 @@ jobs:
           ls -la
 
       # 1. Обновляем код
-      - name: Update project
-        run: |
-          cd /home/nodejs
-          git fetch --all
-          git reset --hard origin/master
+      - name: Checkout
+        uses: actions/checkout@v3
 
       # 2. Убеждаемся что nginx запущен
       - name: Ensure nginx is running
