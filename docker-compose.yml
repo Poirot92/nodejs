@@ -2,13 +2,13 @@ version: '3.8'
 
 services:
   app_blue:
-    image: poirot92/nodjs-app:latest
+    image: poirot92/nodejs-app:latest
     container_name: app_blue
     networks:
       - app_net
 
   app_green:
-    image: poirot92/nodjs-app:latest
+    image: poirot92/nodejs-app:latest
     container_name: app_green
     networks:
       - app_net
