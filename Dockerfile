@@ -8,8 +8,10 @@
     
     COPY . .
     
-    # пробуем билд, но не ломаем сборку
-    RUN npm run build || echo "skip build"
+    # webpack + node18
+    ENV NODE_OPTIONS=--openssl-legacy-provider
+    
+    RUN npm run build
     
     
     # ---------- RUNTIME ----------
@@ -20,7 +22,7 @@
     COPY package*.json ./
     RUN npm install --production
     
-    # копируем ВСЁ (включая если вдруг появится static)
+    # копируем всё
     COPY --from=builder /app /app
     
     EXPOSE 3000
