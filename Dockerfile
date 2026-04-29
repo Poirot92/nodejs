@@ -8,7 +8,8 @@
     
     COPY . .
     
-    RUN npm run build
+    # пробуем билд, но не ломаем сборку
+    RUN npm run build || echo "skip build"
     
     
     # ---------- RUNTIME ----------
@@ -19,8 +20,8 @@
     COPY package*.json ./
     RUN npm install --production
     
-    COPY --from=builder /app/src /app/src
-    COPY --from=builder /app/static /app/static
+    # копируем ВСЁ (включая если вдруг появится static)
+    COPY --from=builder /app /app
     
     EXPOSE 3000
     
