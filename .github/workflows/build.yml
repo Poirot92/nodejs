@@ -17,8 +17,8 @@ jobs:
 
       - name: Build image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/nodjs-app:latest .
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/nodejs-app:latest .
 
       - name: Push image
         run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/nodjs-app:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/nodejs-app:latest

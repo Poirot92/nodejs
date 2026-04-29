@@ -20,20 +20,20 @@ jobs:
       # 1. Обновляем код
       - name: Update project
         run: |
-          cd /home/nodjs
+          cd /home/nodejs
           git fetch --all
           git reset --hard origin/master
 
       # 2. Убеждаемся что nginx запущен
       - name: Ensure nginx is running
         run: |
-          cd /home/nodjs
+          cd /home/nodejs
           docker compose up -d nginx
 
       # 3. Определяем active
       - name: Detect active
         run: |
-          cd /home/nodjs
+          cd /home/nodejs
           if grep -q "app_blue" nginx.conf; then
             echo "NEW=app_green" >> $GITHUB_ENV
             echo "OLD=app_blue" >> $GITHUB_ENV
@@ -45,13 +45,13 @@ jobs:
       # 4. Тянем только новый образ
       - name: Pull new image
         run: |
-          cd /home/nodjs
+          cd /home/nodejs
           docker compose pull $NEW
 
       # 5. Поднимаем новый контейнер
       - name: Start new version
         run: |
-          cd /home/nodjs
+          cd /home/nodejs
           docker compose up -d $NEW
       
       - name: Debug containers
@@ -79,7 +79,7 @@ jobs:
       # 7. Переключаем nginx
       - name: Switch nginx
         run: |
-          cd /home/nodjs
+          cd /home/nodejs
 
           printf "server {\n\
           listen 80;\n\
@@ -97,5 +97,5 @@ jobs:
       # 8. Останавливаем старый
       - name: Stop old
         run: |
-          cd /home/nodjs
+          cd /home/nodejs
           docker compose stop $OLD
