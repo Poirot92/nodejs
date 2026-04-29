@@ -8,7 +8,7 @@
     
     COPY . .
     
-    RUN npm run build || echo "no build step"
+    RUN npm run build
     
     
     # ---------- RUNTIME ----------
@@ -19,7 +19,8 @@
     COPY package*.json ./
     RUN npm install --production
     
-    COPY --from=builder /app /app
+    COPY --from=builder /app/src /app/src
+    COPY --from=builder /app/static /app/static
     
     EXPOSE 3000
     
