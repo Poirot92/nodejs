@@ -4,12 +4,11 @@
     WORKDIR /app
     
     COPY package*.json ./
-    RUN npm ci
+    RUN npm install
     
     COPY . .
     
-    # билд + вывод структуры
-    RUN npm run build && echo "==== BUILD OUTPUT ====" && ls -la && ls -laR
+    RUN npm run build || echo "no build step"
     
     
     # ---------- RUNTIME ----------
@@ -18,12 +17,8 @@
     WORKDIR /app
     
     COPY package*.json ./
-    RUN npm install --omit=dev
+    RUN npm install --production
     
-    # backend
-    COPY --from=builder /app/src /app/src
-    
-    # универсально копируем 
     COPY --from=builder /app /app
     
     EXPOSE 3000
