@@ -1,67 +1,79 @@
-steps:
-  # 1. Забираем код (ОБЯЗАТЕЛЬНО)
-  - name: Checkout
-    uses: actions/checkout@v3
+name: Deploy (Pull)
+on:
+  workflow_run:
+    workflows: ["Build & Push Image"]
+    types:
+      - completed
 
-  # 2. Debug (можешь потом удалить)
-  - name: Debug
-    run: |
-      echo "WORKDIR:"
-      pwd
-      echo "FILES:"
-      ls -la
-      echo "DOCKER:"
-      docker ps -a
+jobs:
+  deploy:
+    runs-on: self-hosted
 
-  # 3. Поднимаем nginx (если вдруг не запущен)
-  - name: Ensure nginx is running
-    run: docker compose up -d nginx
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
 
-  # 4. Определяем active (blue/green)
-  - name: Detect active
-    run: |
-      if grep -q "app_blue" nginx.conf; then
-        echo "NEW=app_green" >> $GITHUB_ENV
-        echo "OLD=app_blue" >> $GITHUB_ENV
-      else
-        echo "NEW=app_blue" >> $GITHUB_ENV
-        echo "OLD=app_green" >> $GITHUB_ENV
-      fi
+      - name: Debug
+        run: |
+          pwd
+          ls -la
+          docker ps -a
 
-  # 5. Тянем новый образ
-  - name: Pull new image
-    run: docker compose pull $NEW
+      - name: Ensure nginx is running
+        run: docker compose up -d nginx
 
-  # 6. Поднимаем новый контейнер
-  - name: Start new version
-    run: docker compose up -d $NEW
+      - name: Detect active
+        run: |
+          if grep -q "app_blue" nginx.conf; then
+            echo "NEW=app_green" >> $GITHUB_ENV
+            echo "OLD=app_blue" >> $GITHUB_ENV
+          else
+            echo "NEW=app_blue" >> $GITHUB_ENV
+            echo "OLD=app_green" >> $GITHUB_ENV
+          fi
 
-  # 7. Debug контейнера
-  - name: Debug containers
-    run: |
-      docker ps -a
-      docker logs $NEW || true
+      - name: Pull new image
+        run: docker compose pull $NEW
 
-  # 8. Ждём пока приложение реально станет доступно
-  - name: Healthcheck
-    run: |
-      echo "Waiting for $NEW..."
+      - name: Start new version
+        run: docker compose up -d $NEW
 
-      for i in {1..20}; do
-        if docker exec nginx curl --max-time 2 -s http://$NEW:3000 > /dev/null; then
-          echo "App is ready"
-          exit 0
-        fi
-        sleep 2
-      done
+      - name: Debug containers
+        run: |
+          docker ps -a
+          docker logs $NEW || true
 
-      echo "App failed"
-      docker logs $NEW
-      exit 1
+      - name: Healthcheck
+        run: |
+          echo "Waiting for $NEW..."
 
-  # 9. Переключаем nginx
-  - name: Switch nginx
-    run: |
-      echo "Switching to $NEW"
+          for i in {1..20}; do
+            if docker exec nginx curl --max-time 2 -s http://$NEW:3000 > /dev/null; then
+              echo "App is ready"
+              exit 0
+            fi
+            sleep 2
+          done
 
-      cat <<EOF > nginx.conf
+          echo "App failed"
+          docker logs $NEW
+          exit 1
+
+      - name: Switch nginx
+        run: |
+          cat <<EOF > nginx.conf
+          server {
+              listen 80;
+
+              location / {
+                  proxy_pass http://$NEW:3000;
+              }
+          }
+          EOF
+
+          docker cp nginx.conf nginx:/etc/nginx/conf.d/default.conf
+          docker exec nginx nginx -t
+          docker exec nginx nginx -s reload
+
+      - name: Stop old
+        run: docker compose stop $OLD
