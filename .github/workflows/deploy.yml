@@ -1,98 +1,67 @@
-name: Deploy (Pull)
+steps:
+  # 1. Забираем код (ОБЯЗАТЕЛЬНО)
+  - name: Checkout
+    uses: actions/checkout@v3
 
-on:
-  workflow_run:
-    workflows: ["Build & Push Image"]
-    types:
-      - completed
+  # 2. Debug (можешь потом удалить)
+  - name: Debug
+    run: |
+      echo "WORKDIR:"
+      pwd
+      echo "FILES:"
+      ls -la
+      echo "DOCKER:"
+      docker ps -a
 
-jobs:
-  deploy:
-    runs-on: self-hosted
+  # 3. Поднимаем nginx (если вдруг не запущен)
+  - name: Ensure nginx is running
+    run: docker compose up -d nginx
 
-    steps:
-      - name: Debug
-        run: |
-          docker ps -a
-          pwd
-          ls -la
+  # 4. Определяем active (blue/green)
+  - name: Detect active
+    run: |
+      if grep -q "app_blue" nginx.conf; then
+        echo "NEW=app_green" >> $GITHUB_ENV
+        echo "OLD=app_blue" >> $GITHUB_ENV
+      else
+        echo "NEW=app_blue" >> $GITHUB_ENV
+        echo "OLD=app_green" >> $GITHUB_ENV
+      fi
 
-      # 1. Обновляем код
-      - name: Checkout
-        uses: actions/checkout@v3
+  # 5. Тянем новый образ
+  - name: Pull new image
+    run: docker compose pull $NEW
 
-      # 2. Убеждаемся что nginx запущен
-      - name: Ensure nginx is running
-        run: |
-          cd /home/nodejs
-          docker compose up -d nginx
+  # 6. Поднимаем новый контейнер
+  - name: Start new version
+    run: docker compose up -d $NEW
 
-      # 3. Определяем active
-      - name: Detect active
-        run: |
-          cd /home/nodejs
-          if grep -q "app_blue" nginx.conf; then
-            echo "NEW=app_green" >> $GITHUB_ENV
-            echo "OLD=app_blue" >> $GITHUB_ENV
-          else
-            echo "NEW=app_blue" >> $GITHUB_ENV
-            echo "OLD=app_green" >> $GITHUB_ENV
-          fi
+  # 7. Debug контейнера
+  - name: Debug containers
+    run: |
+      docker ps -a
+      docker logs $NEW || true
 
-      # 4. Тянем только новый образ
-      - name: Pull new image
-        run: |
-          cd /home/nodejs
-          docker compose pull $NEW
+  # 8. Ждём пока приложение реально станет доступно
+  - name: Healthcheck
+    run: |
+      echo "Waiting for $NEW..."
 
-      # 5. Поднимаем новый контейнер
-      - name: Start new version
-        run: |
-          cd /home/nodejs
-          docker compose up -d $NEW
-      
-      - name: Debug containers
-        run: |
-          docker ps -a
-          docker logs $NEW
+      for i in {1..20}; do
+        if docker exec nginx curl --max-time 2 -s http://$NEW:3000 > /dev/null; then
+          echo "App is ready"
+          exit 0
+        fi
+        sleep 2
+      done
 
-      # 6. Healthcheck
-      - name: Healthcheck
-        run: |
-          echo "Waiting for $NEW..."
+      echo "App failed"
+      docker logs $NEW
+      exit 1
 
-          for i in {1..15}; do
-            if docker exec nginx curl --max-time 2 -s http://$NEW:3000 > /dev/null; then
-              echo "App is ready"
-              exit 0
-            fi
-            sleep 2
-          done
+  # 9. Переключаем nginx
+  - name: Switch nginx
+    run: |
+      echo "Switching to $NEW"
 
-          echo "App failed"
-          docker logs $NEW
-          exit 1
-
-      # 7. Переключаем nginx
-      - name: Switch nginx
-        run: |
-          cd /home/nodejs
-
-          printf "server {\n\
-          listen 80;\n\
-          location / {\n\
-              proxy_pass http://$NEW:3000;\n\
-          }\n\
-          }\n" > nginx.conf
-
-          docker exec nginx nginx -t
-          docker exec nginx nginx -s reload
-
-          docker exec nginx nginx -t
-          docker exec nginx nginx -s reload
-
-      # 8. Останавливаем старый
-      - name: Stop old
-        run: |
-          cd /home/nodejs
-          docker compose stop $OLD
+      cat <<EOF > nginx.conf
