@@ -3,6 +3,8 @@ name: Build & Push Image
 on:
   push:
     branches: [ master ]
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -12,13 +14,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      #  Определяем тег
+      - name: Set image tags
+        id: vars
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION_TAG=${GITHUB_REF#refs/tags/}
+            echo "TAG=${VERSION_TAG}" >> $GITHUB_ENV
+            echo "IS_TAG=true" >> $GITHUB_ENV
+          else
+            echo "TAG=${GITHUB_SHA}" >> $GITHUB_ENV
+            echo "IS_TAG=false" >> $GITHUB_ENV
+          fi
+
+      #  Логин
       - name: Login to Docker Hub
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
+      #  Билдим с несколькими тегами
       - name: Build image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/nodejs-app:latest .
+          docker build \
+            -t ${{ secrets.DOCKER_USERNAME }}/nodejs-app:latest \
+            -t ${{ secrets.DOCKER_USERNAME }}/nodejs-app:${TAG} \
+            .
 
+      #  Пушим
       - name: Push image
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/nodejs-app:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/nodejs-app:${TAG}
